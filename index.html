@@ -1,0 +1,480 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --bg:#0E1116; --panel:#161B22; --raised:#1C232D; --raised2:#232C38;
+    --line:#2A323D; --line2:#38424F;
+    --tx:#E6EDF3; --muted:#8B98A5; --faint:#5C6773;
+    --A:#58A6FF; --ARCH:#BC8CFF; --OI:#56D4A0; --C:#F0A868;
+    --done:#3FB950; --now:#E3B341; --gate:#F87171; --gold:#F0C674;
+    --mono:ui-monospace,'SF Mono','JetBrains Mono','Cascadia Code',Menlo,Consolas,monospace;
+    --sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--tx);font-family:var(--sans);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1000px;margin:0 auto;padding:22px 20px 90px}
+  a{color:var(--A)}
+  h1,h2,h3{margin:0;font-weight:650;letter-spacing:-.01em}
+  .mono{font-family:var(--mono)}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--faint)}
+  /* status bar */
+  .statusbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:11px 15px;margin-bottom:14px;font-size:13px}
+  .statusbar.ok{border-color:rgba(63,185,80,.45)}
+  .statusbar.warn{border-color:rgba(227,179,65,.45)}
+  .statusbar .dotc{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
+  .statusbar .msg{color:var(--muted)}
+  .statusbar .msg b{color:var(--tx)}
+  .statusbar .sp{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .btn{background:var(--raised2);border:1px solid var(--line2);color:var(--tx);font-family:var(--mono);font-size:12px;padding:7px 12px;border-radius:8px;cursor:pointer}
+  .btn:hover{border-color:var(--muted)}
+  .btn.gold{border-color:var(--gold);color:var(--gold)}
+  .btn.ghost{background:none;color:var(--faint)}
+  .btn.ghost:hover{color:var(--tx);border-color:var(--line2)}
+  .saveflash{font-family:var(--mono);font-size:11px;color:var(--done);opacity:0;transition:opacity .25s}
+  .saveflash.show{opacity:1}
+  .setup{background:var(--raised);border:1px solid var(--line2);border-radius:10px;padding:12px 15px;margin-bottom:14px;font-size:13px;color:var(--muted)}
+  .setup code{display:block;margin:7px 0;padding:8px 10px;background:#0a0d12;border:1px solid var(--line);border-radius:6px;color:#c9d4e0;font-size:12.5px;overflow-x:auto}
+  .setup b{color:var(--tx)}
+  .dest{background:linear-gradient(135deg,#1a2230,#151b24);border:1px solid var(--line2);border-radius:16px;padding:20px 22px;margin-bottom:16px;position:relative;overflow:hidden}
+  .dest::before{content:'';position:absolute;inset:0;background:radial-gradient(120% 100% at 100% 0%,rgba(240,198,116,.10),transparent 60%)}
+  .dest>*{position:relative}
+  .dest .eyebrow{color:var(--gold)}
+  .dest h1{font-size:20px;margin:8px 0 4px;line-height:1.25}
+  .dest .who{color:var(--muted);font-size:13.5px;max-width:70ch}
+  .dest .who b{color:var(--tx)}
+  .ladders{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:16px}
+  .ladder{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:14px 15px}
+  .ladder .lh{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:11px}
+  .ladder .lh .nm{font-weight:650;font-size:14px}
+  .ladder .lh .rung{font-family:var(--mono);font-size:10.5px;color:var(--gold)}
+  .rungs{display:flex;flex-direction:column-reverse;gap:0}
+  .rg{display:flex;align-items:center;gap:9px;padding:4px 0;position:relative}
+  .rg .tick{flex:0 0 auto;width:14px;height:14px;border-radius:50%;border:2px solid var(--line2);background:var(--raised2);position:relative;z-index:1}
+  .rg .line{position:absolute;left:6px;bottom:14px;width:2px;height:14px;background:var(--line2);z-index:0}
+  .rg:first-child .line{display:none}
+  .rg .lbl{font-size:12px;color:var(--faint)}
+  .rg.reached .tick{background:var(--done);border-color:var(--done)}
+  .rg.reached .line{background:var(--done)}
+  .rg.reached .lbl{color:var(--tx)}
+  .rg.here .tick{background:var(--now);border-color:var(--now);box-shadow:0 0 0 4px rgba(227,179,65,.14)}
+  .rg.here .lbl{color:var(--now);font-weight:600}
+  .rg.target .lbl{color:var(--gold)}
+  .rg.target .tick{border-color:var(--gold)}
+  .rg.target.reached .tick{background:var(--gold);border-color:var(--gold)}
+  .ladder .foot{margin-top:9px;font-family:var(--mono);font-size:10px;color:var(--faint);display:flex;gap:12px;flex-wrap:wrap}
+  .ladder .foot span{display:flex;align-items:center;gap:5px}
+  .ladder .foot i{width:8px;height:8px;border-radius:50%;display:inline-block}
+  .metrics{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+  .metric{flex:1;min-width:110px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:11px 14px}
+  .metric .n{font-family:var(--mono);font-size:20px;font-weight:600;line-height:1}
+  .metric .n small{font-size:12px;color:var(--faint);font-weight:500}
+  .metric .l{font-size:10px;color:var(--muted);margin-top:6px;letter-spacing:.05em;text-transform:uppercase}
+  .pipe-shell{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 16px 14px;margin-bottom:12px;overflow-x:auto}
+  .pipe{display:flex;align-items:flex-start;min-width:820px}
+  .node{flex:1;display:flex;flex-direction:column;align-items:center;position:relative;cursor:pointer;padding-top:6px}
+  .node .bar{position:absolute;top:15px;left:-50%;width:100%;height:2px;background:var(--line2);z-index:0}
+  .node:first-child .bar{display:none}
+  .node .bar.filled{background:var(--done)}
+  .dot{width:20px;height:20px;border-radius:50%;background:var(--raised2);border:2px solid var(--line2);z-index:1;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:9px;color:var(--faint);transition:transform .12s}
+  .node:hover .dot{transform:scale(1.15)}
+  .dot.part{border-color:var(--now)}
+  .dot.done{background:var(--done);border-color:var(--done);color:#0b2912}
+  .dot.now{border-color:var(--now);box-shadow:0 0 0 4px rgba(227,179,65,.16);animation:pulse 2.2s ease-in-out infinite}
+  .dot.sel{outline:2px solid var(--tx);outline-offset:2px}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 3px rgba(227,179,65,.12)}50%{box-shadow:0 0 0 7px rgba(227,179,65,.05)}}
+  .node .wk{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:7px}
+  .node.now .wk{color:var(--now)}
+  .node .phase{width:60%;height:3px;border-radius:2px;margin-top:5px;opacity:.5}
+  @media (prefers-reduced-motion:reduce){.dot.now{animation:none}}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-family:var(--mono);font-size:11px;color:var(--muted);padding:0 4px;margin-bottom:22px}
+  .legend span{display:flex;align-items:center;gap:6px}
+  .swatch{width:10px;height:10px;border-radius:3px;display:inline-block}
+  .weekhead{display:flex;justify-content:space-between;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:4px}
+  .weekhead h2{font-size:19px}
+  .weekhead .rng{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .phase-tag{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:3px 9px;border-radius:20px;border:1px solid var(--line2)}
+  .goalline{font-size:13px;color:var(--muted);margin:8px 0 14px;padding-left:12px;border-left:2px solid var(--line2)}
+  .goalline b{color:var(--tx)}
+  .weeknav{display:flex;gap:8px;margin:0 0 18px}
+  .weeknav button{flex:0 0 auto;background:var(--panel);border:1px solid var(--line);color:var(--muted);font-family:var(--mono);font-size:12px;padding:7px 12px;border-radius:8px;cursor:pointer}
+  .weeknav button:hover{border-color:var(--line2);color:var(--tx)}
+  .weeknav button:disabled{opacity:.35;cursor:default}
+  .item{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:15px 16px;margin-bottom:10px;display:flex;gap:14px;align-items:flex-start;border-left-width:3px}
+  .item.done-i{opacity:.6}
+  .item.gate{background:linear-gradient(90deg,rgba(248,113,113,.06),transparent)}
+  .item.opt{border-style:dashed}
+  .chk{flex:0 0 auto;width:22px;height:22px;border-radius:6px;border:2px solid var(--line2);background:var(--raised);cursor:pointer;margin-top:1px;display:flex;align-items:center;justify-content:center;color:transparent;font-size:13px;transition:.1s}
+  .chk:hover{border-color:var(--muted)}
+  .chk.on{background:var(--done);border-color:var(--done);color:#0b2912}
+  .chk:focus-visible{outline:2px solid var(--A);outline-offset:2px}
+  .item .body{flex:1;min-width:0}
+  .codepill{font-family:var(--mono);font-size:11px;font-weight:600;padding:2px 8px;border-radius:6px;letter-spacing:.03em}
+  .item .name{font-weight:600;font-size:15px;margin:7px 0}
+  .item.done-i .name{text-decoration:line-through;text-decoration-color:var(--faint)}
+  .field{margin-top:9px}
+  .field .k{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--faint);margin-bottom:2px}
+  .field .v{font-size:13.5px;color:var(--muted)}
+  .field .v.strong{color:var(--tx)}
+  .builds{font-family:var(--mono);font-size:10.5px;color:var(--faint);margin-top:10px}
+  .builds b{color:var(--ARCH)}
+  .hrs{font-family:var(--mono);font-size:11px;color:var(--faint);flex:0 0 auto;text-align:right;margin-top:1px}
+  .tracktag{display:inline-block;font-family:var(--mono);font-size:10px;padding:1px 7px;border-radius:5px;margin-left:8px;vertical-align:middle}
+  .wkfoot{background:var(--raised);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-top:6px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+  .wkfoot label{font-family:var(--mono);font-size:11px;color:var(--muted);display:flex;align-items:center;gap:8px}
+  .wkfoot input[type=number]{width:64px;background:var(--bg);border:1px solid var(--line2);color:var(--tx);font-family:var(--mono);font-size:13px;padding:5px 8px;border-radius:6px}
+  .wkfoot input[type=text]{flex:1;min-width:160px;background:var(--bg);border:1px solid var(--line2);color:var(--tx);font-size:13px;padding:6px 10px;border-radius:6px}
+  .commit{margin-left:auto;background:var(--raised2);border:1px solid var(--line2);color:var(--tx);font-family:var(--mono);font-size:12px;padding:8px 14px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:8px}
+  .commit:hover{border-color:var(--done)}
+  .commit.on{background:rgba(63,185,80,.14);border-color:var(--done);color:var(--done)}
+  .panels{margin-top:32px;display:grid;gap:12px}
+  details.pnl{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  details.pnl>summary{cursor:pointer;padding:15px 18px;list-style:none;display:flex;align-items:center;gap:12px;font-weight:600}
+  details.pnl>summary::-webkit-details-marker{display:none}
+  details.pnl>summary .chev{margin-left:auto;color:var(--faint);transition:.15s;font-family:var(--mono)}
+  details.pnl[open]>summary .chev{transform:rotate(90deg)}
+  details.pnl>summary .ic{font-family:var(--mono);font-size:12px;color:var(--faint)}
+  .pnl-body{padding:2px 18px 18px;color:var(--muted);font-size:14px}
+  .pnl-body h4{color:var(--tx);font-size:13px;margin:16px 0 6px;font-family:var(--mono);letter-spacing:.03em}
+  .pnl-body ol,.pnl-body ul{margin:6px 0;padding-left:20px}
+  .pnl-body li{margin:5px 0}
+  .pnl-body .step{display:flex;gap:12px;padding:9px 0;border-bottom:1px solid var(--line)}
+  .pnl-body .step:last-child{border-bottom:none}
+  .pnl-body .step .num{font-family:var(--mono);font-size:12px;color:var(--C);flex:0 0 30px}
+  .pnl-body .step .t{color:var(--tx);font-weight:600;font-size:13.5px}
+  .pnl-body .step .box{font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:2px}
+  .pnl-body .step .time{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--muted);flex:0 0 auto}
+  code{font-family:var(--mono);font-size:12.5px;background:var(--raised2);padding:1px 6px;border-radius:4px;color:#c9d4e0}
+  .foot{margin-top:26px;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;font-family:var(--mono);font-size:11px;color:var(--faint)}
+  .reset{background:none;border:1px solid var(--line);color:var(--faint);font-family:var(--mono);font-size:11px;padding:6px 12px;border-radius:7px;cursor:pointer}
+  .reset:hover{border-color:var(--gate);color:var(--gate)}
+  .loading{text-align:center;padding:80px 0;color:var(--muted);font-family:var(--mono)}
+</style>
+<div class="wrap" id="app"><div class="loading">loading tracker…</div></div>
+<script>
+const APP_VERSION='v5-2026-08-22';
+// ================= DEFAULT PLAN (self-contained; the saved file carries a copy) =================
+const DEFAULT_PLAN={
+ start:['2026-08-22','2026-08-29','2026-09-05','2026-09-12','2026-09-19','2026-09-26','2026-10-03','2026-10-10','2026-10-17','2026-10-24','2026-10-31','2026-11-07','2026-11-14','2026-11-21','2026-11-28','2026-12-05'],
+ range:['Aug 22\u201328','Aug 29\u2013Sep 4','Sep 5\u201311','Sep 12\u201318','Sep 19\u201325','Sep 26\u2013Oct 2','Oct 3\u20139','Oct 10\u201316','Oct 17\u201323','Oct 24\u201330','Oct 31\u2013Nov 6','Nov 7\u201313','Nov 14\u201320','Nov 21\u201327','Nov 28\u2013Dec 4','Dec 5\u201311'],
+ phase:[1,1,1,2,2,2,2,2,2,3,3,3,3,3,4,4],
+ phaseMeta:{1:{n:'Foundations',c:'var(--A)'},2:{n:'CKA core + architecture',c:'var(--ARCH)'},3:{n:'Exam gauntlet',c:'var(--now)'},4:{n:'Arrival + next block',c:'var(--gold)'}},
+ tracks:{A:{c:'var(--A)',n:'CKA'},ARCH:{c:'var(--ARCH)',n:'ARCHITECTURE'},OI:{c:'var(--OI)',n:'OFFICE INFRA'},C:{c:'var(--C)',n:'WRITING'}},
+ goal:[
+  'Get moving \u2014 finish Linux, stand up a cluster, keep the architecture course rolling.',
+  'Learn containers, deploy your first app, and start mapping your company\u2019s infrastructure.',
+  'Finish the beginner map, do your first from-memory rebuild, push the architecture course.',
+  'Enter the real CKA course; hit the core-patterns block of architecture; document a work component.',
+  'CKA core continues; keep the architecture course moving.',
+  'CKA momentum; map another infra component; architecture continues.',
+  'CKA sections continue; reach the tradeoffs block of architecture.',
+  'Build a real cluster with kubeadm; map your company\u2019s topology.',
+  'CKA nears its end; finish the architecture course with a design sketch.',
+  'Close all taught CKA material. Optional: publish your first post.',
+  'First full mock under exam conditions; reason through a real infra change at work.',
+  'Clear the mocks and book the exam.',
+  'killer.sh #1 \u2014 a hard, humbling score. The value is the review.',
+  'killer.sh #2, then sit the CKA. Your first undeniable, dated receipt.',
+  'Buffer \u2014 absorb every slip, or scope what comes next.',
+  'Arrival: reconcile, meet who you\u2019ve become, plan the next block (maths + writing return here).'],
+ skills:[
+  {key:'k8s',name:'Kubernetes',target:5,rungs:[{l:'None',by:null},{l:'Understands the pieces',by:'A2'},{l:'Deploys apps on own cluster',by:'A5'},{l:'Rebuilds from memory',by:'A7'},{l:'Builds a cluster with kubeadm',by:'A12'},{l:'CKA exam-ready',by:'A18'}]},
+  {key:'linux',name:'Linux administration',target:3,rungs:[{l:'AI-assisted only',by:null},{l:'Course fundamentals',by:'A1'},{l:'Verified basics, unaided',by:'A7'},{l:'Exam-level',by:'A18'}]},
+  {key:'docker',name:'Containers / Docker',target:3,rungs:[{l:'None',by:null},{l:'Understands images',by:'A2'},{l:'Builds & runs own images',by:'A4'},{l:'Fluent under Kubernetes',by:'A14'}]},
+  {key:'arch',name:'Software architecture',target:3,rungs:[{l:'None',by:null},{l:'Knows the building blocks',by:'ARCH4'},{l:'Core patterns & tradeoffs',by:'ARCH6'},{l:'Can design a system end-to-end',by:'ARCH8'}]},
+  {key:'oinfra',name:'Office infrastructure',target:3,rungs:[{l:'Surface familiarity',by:null},{l:'Knows the components',by:'OI2'},{l:'Maps the topology',by:'OI4'},{l:'Can reason about changes',by:'OI5'}]},
+  {key:'own',name:'Owning your work (no AI crutch)',target:2,rungs:[{l:'Relies on AI',by:null},{l:'Rebuilds from blank',by:'A7'},{l:'Verifies & debugs AI unaided',by:'A18'}]}],
+ weeks:[
+  [
+   ['A1','A','Finish "Linux for Beginners"','Linux is the ground everything runs on \u2014 containers, Kubernetes, servers. You\u2019re already partway in, so finishing it is the fastest first win.','Complete the remaining sections. For anything you already do at work, jump to that section\u2019s lab \u2014 pass it and move on; only watch what a lab shows you can\u2019t do. Note commands that were genuinely new.','Course 100% complete; a short note of the commands/concepts that were new.',5],
+   ['A2','A','Learn what a cluster actually IS','Thirty minutes of "what is this" before you build one saves hours of confusion later.','In "Kubernetes for Beginners", watch ONLY the opening architecture lessons \u2014 cluster, control plane, node, pod. Stop there.','You can explain, in your own words, what a node and a control plane do.',2],
+   ['A3','A','Stand up your first cluster (minikube)','Kubernetes is hands-on \u2014 you can\u2019t learn it from videos. minikube gives you a real single-node cluster with least friction (kubeadm comes in Week 8). Your Fedora VM can host this.','Install minikube and kubectl. Run `minikube start`.','`kubectl get nodes` shows one node Ready.',3],
+   ['ARCH1','ARCH','Architecture: Intro + Requirements & Drivers (spine course, Sec 1–2)','Your SPINE architecture course — the only one to finish this block. Sections 1–2 frame everything: what architecture is, and how to turn fuzzy requirements into features, quality attributes, and constraints.','Watch sections 1–2 (~50 min). Write in your own words: the 3 requirement types, and one real constraint (technical / business / legal) you have seen at Cambio.','Sections 1–2 done; 3 requirement types + one real constraint noted.',2]
+  ],
+  [
+   ['A4','A','"Docker for Beginners" (skip-test style)','A Kubernetes pod is basically a running container. If containers are fuzzy, Kubernetes stays fuzzy.','Work the course; skip-test each lab (try first, watch only what you fail). Build one image yourself, run it, look inside it.','All labs passed; you built and ran one container image of your own.',5],
+   ['A5','A','First real thing on YOUR cluster','Deploying by hand turns abstract objects into muscle memory.','On minikube, follow the early "Kubernetes for Beginners" labs: pod \u2192 deployment \u2192 service you can reach. Delete a pod and watch it heal.','You deployed an app and reached it via browser/curl.',5],
+   ['OI1','OI','Office infra \u2014 map the big picture','Owning your company\u2019s infrastructure is what makes you a real associate lead, not a ticket-closer. Start with the shape of it. (Lean on work hours where allowed.)','Sketch the high-level topology of the COSMIC/Cambio stack you touch: what runs where, what talks to what. Ask a senior to sanity-check it.','A hand-drawn topology sketch exists; one senior has glanced at it.',2]
+  ],
+  [
+   ['A6','A','Finish "Kubernetes for Beginners"','Completes your mental map before the hard CKA course.','Finish remaining sections; do labs on YOUR cluster where you can.','Course complete; labs passed on your own cluster.',6],
+   ['A7','A','Your first from-memory rebuild (the important one)','THE habit that fixes retention: knowledge that sticks because it was owned, not followed. Everything leans on this.','Close the course. Blank terminal. From memory: deployment \u2192 service \u2192 scale \u2192 delete a pod and watch it heal. Peek only when stuck; write down what you peeked at.','Recreated the core workflow without following along; weak spots written down.',4],
+   ['ARCH2','ARCH','Architecture: Quality Attributes (Sec 3)','The heart of architectural thinking — performance, scalability, availability, fault tolerance, SLA/SLO/SLI. This is the trade-off vocabulary seniors actually use.','Watch section 3 (~56 min). Note each quality attribute in one line, and which two you would prioritise for the COSMIC EHR and why.','Section 3 done; quality attributes noted + your COSMIC priority call.',3]
+  ],
+  [
+   ['A8','A','CKA course \u2014 sections 1\u20132 (+ rebuild rule)','The real exam prep \u2014 deeper than the beginner course. The certificate lives here.','Sections 1\u20132; after EACH, close it and rebuild the tasks from a blank terminal.','Both sections rebuilt from blank.',6],
+   ['ARCH3','ARCH','Architecture: API Design (Sec 4)','How services talk — RPC vs REST, idempotency, versioning. Directly relevant to the platform work you already do.','Watch section 4 (~40 min). Note, in your own words, when you would choose RPC vs REST.','Section 4 done; RPC-vs-REST note written.',2],
+   ['OI2','OI','Office infra \u2014 document one core component','Turning "I\u2019ve seen it" into "I understand it" \u2014 one component at a time.','Pick one component from your OI1 sketch. Write how it works, its config, its failure modes, in your own words.','One component documented in your own words.',2]
+  ],
+  [
+   ['A9','A','CKA sections 3\u20134 (+ rebuild rule)','Certificate momentum. Same rhythm weekly.','Sections 3\u20134, rebuild each from blank.','Both sections rebuilt from blank.',6],
+   ['ARCH4','ARCH','Architecture: Building Blocks (Sec 5)','Load balancers, message brokers, API gateways, CDNs — the Lego pieces every large system is built from. You touch several of these at work already.','Watch section 5 (~56 min). For each building block, note one place it appears (or could) in your company stack.','Section 5 done; each building block mapped to a real / possible use.',3]
+  ],
+  [
+   ['A10','A','CKA sections 5\u20136 (+ rebuild rule)','Certificate momentum.','Sections 5\u20136, rebuild each from blank.','Both sections rebuilt from blank.',6],
+   ['OI3','OI','Office infra \u2014 document another component','Second component; the map is filling in.','Same as OI2 for a different component in your stack.','A second component documented in your own words.',2],
+   ['ARCH5','ARCH','Architecture: Data Storage at Global Scale (Sec 6)','SQL vs NoSQL, indexing, replication, sharding, the CAP theorem, object storage — the decisions that make or break scale.','Watch section 6 (~1h5m). Note the CAP theorem in your own words + one real DB choice you would defend.','Section 6 done; CAP + one DB-choice note written.',3]
+  ],
+  [
+   ['A11','A','CKA sections 7\u20138 (+ rebuild rule)','Certificate momentum.','Sections 7\u20138, rebuild each from blank.','Both sections rebuilt from blank.',6],
+   ['ARCH6','ARCH','Architecture: Patterns & Styles (Sec 7)','The named patterns — multi-tier, microservices, event-driven — and, crucially, their trade-offs. The rung that separates knowing patterns from knowing WHEN to use them.','Watch section 7 (~47 min). For two patterns, write when you would pick one over the other and why.','Section 7 done; two “when to pick which” notes written.',3]
+  ],
+  [
+   ['A12','A','CKA sections 9\u201310 + build a kubeadm cluster','By now the course walks you through building a real multi-node cluster with kubeadm \u2014 the from-scratch method the exam tests. This becomes your main practice cluster.','Sections 9\u201310; build the kubeadm cluster and rebuild the tasks on it from blank.','kubeadm cluster built; both sections rebuilt from blank on it.',6],
+   ['OI4','OI','Office infra \u2014 map the full topology','From components to the whole picture \u2014 how it all fits and flows.','Combine your component notes into one clear topology: data flow, dependencies, failure points. Sanity-check with a senior.','A full topology document exists; senior-reviewed.',2],
+   ['ARCH7','ARCH','Architecture: Stream Processing + Big Data (Sec 8–9)','Event-stream windows and big-data patterns (batch vs stream, Lambda architecture) — the last concept blocks before the design practice.','Watch sections 8–9 (~1h24m). Note the difference between batch and stream processing + one use case for each.','Sections 8–9 done; batch-vs-stream note written.',2]
+  ],
+  [
+   ['A13','A','CKA sections 11\u201312 (+ rebuild rule)','Certificate momentum \u2014 the course is nearly done.','Sections 11\u201312, rebuild each from blank.','Both sections rebuilt from blank.',6],
+   ['ARCH8','ARCH','Architecture: System-Design Practice + your own sketch (Sec 10)','The finale — the course designs a forum and an e-commerce platform end-to-end. Then you prove you internalised it by doing one yourself, unaided.','Watch section 10 (~1h15m). Then sketch a full system design for a small real problem (e.g. your mega-project) using the course method — no AI doing the design.','Section 10 done; one end-to-end system-design sketch done by you.',3]
+  ],
+  [
+   ['A14','A','Finish the CKA course + full lab sweep','Closes all taught material. Everything after is exam conditioning.','Complete remaining sections; run every course lab until all green.','Every CKA-course lab passed.',7],
+   ['C1','C','Publish your first post (optional / stretch)','Optional this block \u2014 but the few engineers who explain real work get noticed disproportionately, and writing forces understanding. Skip guilt-free if the week is full.','Article Framework panel below. Topic: something you actually did. One thing, five steps, ship.','A public URL exists.',3,false,true]
+  ],
+  [
+   ['A15','A','Ultimate CKA Mock #1 \u2014 exam conditions','First honest read of where you stand against the clock.','Strict timer, no notes, no AI. Treat it as the real exam.','Score recorded. If <70%: remediation list + re-rebuild weakest 3 topics.',6,true],
+   ['OI5','OI','Office infra \u2014 reason about a real change','The top rung: not just knowing the stack, but being able to own a change to it.','Take one real or hypothetical change to your infra. Write what you\u2019d change, the risks, the rollback. Run it past a senior.','A change-reasoning note written and discussed.',2]
+  ],
+  [
+   ['A16','A','Mock #2 (+#3 if needed) + register the exam','Converting "I studied" into a booked, dated commitment.','Re-sit mocks until you clear them in time. Register the real CKA (killer.sh comes free with it).','Clearing mocks comfortably; exam booked \u2014 record the date.',6]
+  ],
+  [
+   ['A17','A','killer.sh session 1 + full review','killer.sh is harder than the real exam \u2014 a low score is normal and calibrating.','Sit session 1 timed. Review EVERY missed question until understood.','Every missed question reviewed and understood.',6]
+  ],
+  [
+   ['A18','A','killer.sh #2 + SIT THE CKA EXAM','The finish line \u2014 your first undeniable, dated receipt that the plan works.','Session 2, then take the exam.','Exam sat. Record the result when it arrives.',6,true]
+  ],
+  [
+   ['BUF','A','Buffer week \u2014 absorb every slip','No plan survives 14 weeks without slips. This catches them without guilt.','If items slipped: clear them. If not: scope your next build (a small inference-serving platform on your cluster), with its own done-criteria.','Slips cleared, or next-build scope written.',5]
+  ],
+  [
+   ['REV','A','\u25c8 Arrival \u2014 reconcile, meet who you are, plan next','The ONLY sanctioned moment to reopen the plan. Where the deferred maths warm-up and writing cadence come back on the table.','Reconcile the tracker. Read your ladders against reality \u2014 which target rungs did you reach? Draft the next block: pursuit maths test, AWS SAA \u2192 Terraform, writing cadence, the build. Review the parked list.','Tracker reconciled; next-block drafted; parked list reviewed.',3,true]
+  ]
+ ]
+};
+// ================= STATE =================
+const LS_KEY='roadmap-v5-bundle';
+let PLAN=JSON.parse(JSON.stringify(DEFAULT_PLAN));
+let S={checked:{},hours:{},commits:{},notes:{},decision:''};
+let sel=0;
+let fileHandle=null, connected=false, needsLocalhost=false;
+let serverMode=false, serverTimer=null;
+let jb={binId:'',key:''}, jbMode=false, jbTimer=null, jbError='';
+const hasFSA=('showSaveFilePicker' in window);
+const $=(s,e=document)=>e.querySelector(s);
+
+function bundle(){return {meta:{app:APP_VERSION,savedAt:new Date().toISOString()},plan:PLAN,progress:S};}
+function applyBundle(d){ if(d&&d.plan) PLAN=d.plan; if(d&&d.progress) S=Object.assign({checked:{},hours:{},commits:{},notes:{},decision:''},d.progress); }
+
+// ---- IndexedDB (stores the file handle across reopens) ----
+function idb(){return new Promise((res,rej)=>{const r=indexedDB.open('roadmap-fs',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});}
+async function idbSet(k,v){const db=await idb();return new Promise((res,rej)=>{const t=db.transaction('kv','readwrite');t.objectStore('kv').put(v,k);t.oncomplete=()=>res();t.onerror=()=>rej(t.error);});}
+async function idbGet(k){const db=await idb();return new Promise((res,rej)=>{const t=db.transaction('kv','readonly');const rq=t.objectStore('kv').get(k);rq.onsuccess=()=>res(rq.result);rq.onerror=()=>rej(rq.error);});}
+
+// ---- local mirror (never lose data even before a file is connected) ----
+function loadLocal(){try{const raw=localStorage.getItem(LS_KEY);if(raw)applyBundle(JSON.parse(raw));}catch(e){}}
+function saveLocal(){try{localStorage.setItem(LS_KEY,JSON.stringify(bundle()));}catch(e){}}
+
+// ---- File System Access ----
+let writeTimer=null;
+async function writeHandle(){
+  if(!connected||!fileHandle)return;
+  try{const w=await fileHandle.createWritable();await w.write(JSON.stringify(bundle(),null,2));await w.close();flashSaved();}
+  catch(e){console.error('file write failed',e);connected=false;renderStatusOnly();}
+}
+function scheduleWrite(){if(!connected||!fileHandle)return;clearTimeout(writeTimer);writeTimer=setTimeout(writeHandle,400);}
+async function readHandle(){const f=await fileHandle.getFile();const txt=await f.text();if(txt.trim())applyBundle(JSON.parse(txt));}
+
+async function connectNew(){
+  try{
+    fileHandle=await window.showSaveFilePicker({suggestedName:'roadmap-plan.json',types:[{description:'Roadmap plan+progress',accept:{'application/json':['.json']}}]});
+    connected=true; await idbSet('handle',fileHandle); await writeHandle(); renderStatusOnly();
+  }catch(e){ if(e&&e.name==='SecurityError'){needsLocalhost=true;render();} else if(e&&e.name!=='AbortError'){alert('Could not create the file: '+e.message);} }
+}
+async function connectExisting(){
+  try{
+    const [h]=await window.showOpenFilePicker({types:[{description:'Roadmap plan+progress',accept:{'application/json':['.json']}}],multiple:false});
+    fileHandle=h; await idbSet('handle',h);
+    const p=await h.queryPermission({mode:'readwrite'});
+    if(p!=='granted'){const rp=await h.requestPermission({mode:'readwrite'});if(rp!=='granted'){connected=false;renderStatusOnly();return;}}
+    connected=true; await readHandle(); render();
+  }catch(e){ if(e&&e.name==='SecurityError'){needsLocalhost=true;render();} else if(e&&e.name!=='AbortError'){alert('Could not open the file: '+e.message);} }
+}
+async function tryReconnect(){
+  if(!hasFSA)return;
+  let h; try{h=await idbGet('handle');}catch(e){return;}
+  if(!h)return;
+  fileHandle=h;
+  try{
+    const p=await h.queryPermission({mode:'readwrite'});
+    if(p==='granted'){connected=true; await readHandle(); render();}
+    else {connected=false; renderStatusOnly();} // needs one click to re-grant
+  }catch(e){connected=false;renderStatusOnly();}
+}
+async function regrant(){
+  if(!fileHandle)return;
+  try{const p=await fileHandle.requestPermission({mode:'readwrite'});
+    if(p==='granted'){connected=true; await readHandle(); render();}
+  }catch(e){ if(e&&e.name==='SecurityError'){needsLocalhost=true;render();} }
+}
+async function disconnect(){ connected=false; fileHandle=null; try{await idbSet('handle',null);}catch(e){} renderStatusOnly(); }
+
+// ---- download/upload fallback (any browser) ----
+function exportData(){const blob=new Blob([JSON.stringify(bundle(),null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='roadmap-plan-'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(a.href);}
+function importPick(){const inp=document.createElement('input');inp.type='file';inp.accept='application/json,.json';inp.onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{if(!confirm('Load this file, replacing the current plan+progress?'))return;applyBundle(JSON.parse(r.result));saveLocal();render();}catch(err){alert('That file could not be read.');}};r.readAsText(f);};inp.click();}
+
+// ---- local server mode (cross-browser auto-save) ----
+async function initServer(){
+  try{const r=await fetch('/state',{method:'GET',cache:'no-store'});
+    if(r.ok){serverMode=true;const t=await r.text();if(t&&t.trim()&&t.trim()!=='{}')applyBundle(JSON.parse(t));return true;}
+  }catch(e){}
+  serverMode=false;return false;
+}
+async function saveServer(){
+  try{const r=await fetch('/state',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(bundle())});if(r.ok)flashSaved();}
+  catch(e){console.error('server save failed',e);}
+}
+function scheduleServerWrite(){clearTimeout(serverTimer);serverTimer=setTimeout(saveServer,400);}
+// ---- JSONBin cloud sync (hosted, cross-device) ----
+function loadJB(){try{const c=JSON.parse(localStorage.getItem('roadmap-jb')||'{}');jb.binId=c.binId||'';jb.key=c.key||'';}catch(e){}}
+function saveJBcfg(){try{localStorage.setItem('roadmap-jb',JSON.stringify({binId:jb.binId,key:jb.key}));}catch(e){}}
+async function jbGet(){const r=await fetch('https://api.jsonbin.io/v3/b/'+jb.binId+'/latest',{headers:{'X-Master-Key':jb.key,'X-Bin-Meta':'false'}});if(!r.ok)throw new Error('GET '+r.status);return await r.json();}
+async function jbPut(){const r=await fetch('https://api.jsonbin.io/v3/b/'+jb.binId,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':jb.key},body:JSON.stringify(bundle())});if(!r.ok)throw new Error('PUT '+r.status);return true;}
+async function jbCreate(){const r=await fetch('https://api.jsonbin.io/v3/b',{method:'POST',headers:{'Content-Type':'application/json','X-Master-Key':jb.key,'X-Bin-Name':'roadmap-tracker','X-Bin-Private':'true'},body:JSON.stringify(bundle())});if(!r.ok)throw new Error('CREATE '+r.status);const j=await r.json();return j.metadata.id;}
+async function initJB(){loadJB();if(jb.binId&&jb.key){try{const rec=await jbGet();if(rec&&(rec.plan||rec.progress))applyBundle(rec);jbMode=true;return true;}catch(e){jbError='Could not reach your bin \u2014 check the key / Bin ID.';jbMode=false;return false;}}return false;}
+async function saveJB(){try{await jbPut();flashSaved();}catch(e){console.error('jsonbin save failed',e);}}
+function scheduleJBWrite(){clearTimeout(jbTimer);jbTimer=setTimeout(saveJB,700);}
+async function jbCreateFlow(){const k=($('#jb-key')||{}).value; if(!k||!k.trim()){jbError='Enter your JSONBin Master Key first.';const m=$('#jb-msg');if(m)m.textContent=jbError;return;} jb.key=k.trim();jbError=''; try{const id=await jbCreate();jb.binId=id;saveJBcfg();jbMode=true;render();}catch(e){jbError='Create failed ('+e.message+') \u2014 check the key.';const m=$('#jb-msg');if(m)m.textContent=jbError;}}
+async function jbConnectFlow(){const k=($('#jb-key')||{}).value,b=($('#jb-bin')||{}).value; if(!k||!k.trim()||!b||!b.trim()){jbError='Enter both the key and the Bin ID to connect.';const m=$('#jb-msg');if(m)m.textContent=jbError;return;} jb.key=k.trim();jb.binId=b.trim();jbError=''; try{const rec=await jbGet();if(rec&&(rec.plan||rec.progress))applyBundle(rec);saveJBcfg();jbMode=true;render();}catch(e){jbError='Connect failed ('+e.message+') \u2014 check the key / Bin ID.';const m=$('#jb-msg');if(m)m.textContent=jbError;}}
+function jbDisconnect(){jb={binId:'',key:''};jbMode=false;saveJBcfg();render();}
+// ---- unified save ----
+function save(){ saveLocal(); if(jbMode){scheduleJBWrite();} else if(serverMode){scheduleServerWrite();} else {scheduleWrite();} }
+function flashSaved(){const el=$('#saveflash');if(!el)return;el.textContent='saved \u2713';el.classList.add('show');setTimeout(()=>el.classList.remove('show'),1100);}
+
+// ================= DERIVED =================
+const totalItems=()=>PLAN.weeks.reduce((a,w)=>a+w.filter(it=>!it[8]).length,0);
+const doneItems=()=>{let n=0;PLAN.weeks.forEach(w=>w.forEach(it=>{if(!it[8]&&S.checked[it[0]])n++;}));return n;};
+const weekDone=i=>PLAN.weeks[i].filter(it=>!it[8]).every(it=>S.checked[it[0]]);
+const weekPartial=i=>PLAN.weeks[i].some(it=>S.checked[it[0]]);
+const hoursLogged=()=>Object.values(S.hours).reduce((a,b)=>a+(+b||0),0);
+const commitCount=()=>Object.values(S.commits).filter(Boolean).length;
+function currentWeek(){const now=new Date();let idx=0;for(let i=0;i<PLAN.start.length;i++){if(now>=new Date(PLAN.start[i]+'T00:00:00'))idx=i;}return idx;}
+function skillLevel(sk){let lvl=0;for(let r=1;r<sk.rungs.length;r++){const by=sk.rungs[r].by;if(by&&S.checked[by])lvl=r;else break;}return lvl;}
+
+// ================= STATUS BAR =================
+function statusHTML(){
+  const flash='<span class="saveflash" id="saveflash"></span>';
+  const exp='<button class="btn ghost" id="b-exp">\u2193 Export</button>';
+  if(jbMode){return `<span class="dotc" style="background:var(--done)"></span><span class="msg"><b>Cloud sync on</b> \u2014 saving to your JSONBin bin (\u2026${jb.binId.slice(-6)}). Open the page on any device and enter your key to sync. ${flash}</span><span class="sp">${exp}<button class="btn ghost" id="jb-disc">Disconnect</button></span>`;}
+  if(serverMode){return `<span class="dotc" style="background:var(--done)"></span><span class="msg"><b>Auto-saving to the local server</b> \u2014 open this URL in any browser to stay in sync. ${flash}</span><span class="sp">${exp}</span>`;}
+  return `<span class="dotc" style="background:var(--now)"></span><span class="msg"><b>Saving in this browser only.</b> Connect cloud sync below to reach it from any device. ${flash}</span><span class="sp">${exp}</span>`;
+}
+function wireStatus(){
+  const on=(id,fn)=>{const el=$('#'+id);if(el)el.onclick=fn;};
+  on('b-exp',exportData);
+  on('jb-create',jbCreateFlow);on('jb-connect',jbConnectFlow);on('jb-disc',jbDisconnect);
+}
+function renderStatusOnly(){const sb=$('#statusbar');if(sb){sb.className='statusbar'+(connected?' ok':(fileHandle||needsLocalhost)?' warn':'');sb.innerHTML=statusHTML();wireStatus();}}
+
+// ================= RENDER =================
+function render(){
+  const cur=currentWeek(),total=totalItems(),done=doneItems();
+  const setupHTML = (jbMode||serverMode) ? '' : `
+    <div class="setup">
+      <b>Cloud sync (free, your data)</b> \u2014 reach your tracker from any device, always saved.
+      <ol style="margin:8px 0 10px;padding-left:18px">
+        <li>Sign up at <a href="https://jsonbin.io" target="_blank" rel="noopener">jsonbin.io</a> and copy your <b>Master Key</b> (API Keys page).</li>
+        <li>Paste it below and click <b>Create bin</b> (first device). On other devices, paste the same key + the <b>Bin ID</b> shown after, then <b>Connect</b>.</li>
+      </ol>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <input id="jb-key" type="password" placeholder="JSONBin Master Key" style="flex:1;min-width:200px;background:#0a0d12;border:1px solid var(--line2);color:var(--tx);font-size:13px;padding:7px 10px;border-radius:6px">
+        <input id="jb-bin" type="text" placeholder="Bin ID (only when connecting an existing bin)" style="flex:1;min-width:180px;background:#0a0d12;border:1px solid var(--line2);color:var(--tx);font-size:13px;padding:7px 10px;border-radius:6px">
+        <button class="btn gold" id="jb-create">Create bin</button>
+        <button class="btn" id="jb-connect">Connect</button>
+      </div>
+      <div id="jb-msg" style="margin-top:7px;color:var(--gate);font-size:12.5px">${jbError||''}</div>
+      <div style="margin-top:9px;color:var(--faint);font-size:12px">Host the page free on <b>GitHub Pages</b>: add this file to a public repo as <code>index.html</code> \u2192 Settings \u2192 Pages \u2192 deploy from main. Your key is stored only in THIS browser \u2014 never in the page \u2014 so enter it once per device. (No cloud? It still saves locally in this browser.)</div>
+    </div>`;
+  $('#app').innerHTML=`
+   <div class="statusbar${connected?' ok':(fileHandle||needsLocalhost)?' warn':''}" id="statusbar">${statusHTML()}</div>
+   ${setupHTML}
+   <div class="dest">
+     <div class="eyebrow">The destination \u00b7 16 weeks \u00b7 Sat Aug 22 \u2192 Fri Dec 11 2026</div>
+     <h1>Each skill climbs to a named rung. Here\u2019s how far up you are.</h1>
+     <div class="who">The gold \u2605 rung on each ladder is where these 16 weeks land you. The glowing rung is where you stand <b>today</b> \u2014 it rises as you tick the tasks that feed it. Weeks run <b>Saturday \u2192 Friday</b>; office hours (8\u20135 weekdays) are for work, so this is your evenings + weekends.</div>
+   </div>
+   <div class="ladders" id="ladders"></div>
+   <div class="metrics">
+     <div class="metric"><div class="n">${done}<small>/${total}</small></div><div class="l">Steps done</div></div>
+     <div class="metric"><div class="n">${hoursLogged()||0}<small>h</small></div><div class="l">Hours logged</div></div>
+     <div class="metric"><div class="n">${commitCount()}<small>/16</small></div><div class="l">Weekly commits</div></div>
+     <div class="metric"><div class="n">W${cur+1}</div><div class="l">Current week</div></div>
+   </div>
+   <div class="pipe-shell"><div class="pipe" id="pipe"></div></div>
+   <div class="legend">
+     <span><i class="swatch" style="background:var(--A)"></i>CKA ladder</span>
+     <span><i class="swatch" style="background:var(--ARCH)"></i>Architecture course</span>
+     <span><i class="swatch" style="background:var(--OI)"></i>Office infra</span>
+     <span><i class="swatch" style="background:var(--C)"></i>Writing (optional)</span>
+     <span><i class="swatch" style="background:var(--done)"></i>Done</span>
+     <span><i class="swatch" style="background:var(--now)"></i>Current</span>
+     <span style="color:var(--gate)">\u25c8 Gate</span>
+   </div>
+   <div id="week"></div>
+   <div class="panels" id="panels"></div>
+   <div class="foot">
+     <span>The saved file holds the whole plan + your progress \u2014 upload it here in chat anytime to have the plan adjusted. Every task has a code (e.g. "explain A4").</span>
+     <button class="reset" id="reset">Reset all</button>
+   </div>`;
+  wireStatus();
+  renderLadders();
+  const pipe=$('#pipe');
+  pipe.innerHTML=PLAN.weeks.map((w,i)=>{const d=weekDone(i),p=!d&&weekPartial(i),now=i===cur;
+    const cls=['dot',d?'done':'',p?'part':'',now?'now':'',i===sel?'sel':''].join(' ');
+    return `<div class="node ${now?'now':''}" data-i="${i}" role="button" tabindex="0" aria-label="Week ${i+1}, ${PLAN.range[i]}"><div class="bar ${i>0&&weekDone(i-1)?'filled':''}"></div><div class="${cls}">${d?'\u2713':i+1}</div><div class="wk">W${i+1}</div><div class="phase" style="background:${PLAN.phaseMeta[PLAN.phase[i]].c}"></div></div>`;}).join('');
+  pipe.querySelectorAll('.node').forEach(n=>{const go=()=>{sel=+n.dataset.i;render();};n.onclick=go;n.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}};});
+  renderWeek();renderPanels();
+  $('#reset').onclick=()=>{if(confirm('Reset every check, hour, and commit? (The plan itself stays.)')){S={checked:{},hours:{},commits:{},notes:{},decision:''};save();render();}};
+}
+function renderLadders(){
+  $('#ladders').innerHTML=PLAN.skills.map(sk=>{
+    const cur=skillLevel(sk);
+    const rungs=sk.rungs.map((r,idx)=>{const reached=idx<=cur;const here=idx===cur;const target=idx===sk.target;
+      const cls=['rg',reached?'reached':'',here?'here':'',target?'target':''].join(' ');
+      return `<div class="${cls}"><span class="line"></span><span class="tick"></span><span class="lbl">${r.l}${target?' \u2605':''}</span></div>`;}).join('');
+    const atTarget=cur>=sk.target;
+    return `<div class="ladder"><div class="lh"><span class="nm">${sk.name}</span><span class="rung">${atTarget?'AT TARGET':'rung '+cur+'/'+sk.target}</span></div><div class="rungs">${rungs}</div><div class="foot"><span><i style="background:var(--now)"></i>you are here</span><span><i style="background:var(--gold)"></i>\u2605 16-week target</span></div></div>`;
+  }).join('');
+}
+function renderWeek(){
+  const i=sel,ph=PLAN.phase[i],meta=PLAN.phaseMeta[ph];
+  const feeds=code=>PLAN.skills.filter(sk=>sk.rungs.some(r=>r.by===code)).map(sk=>sk.name);
+  const items=PLAN.weeks[i].map(it=>{const [code,tr,name,why,what,dc,hrs,gate,opt]=it;const on=!!S.checked[code];const t=PLAN.tracks[tr];
+    const fed=feeds(code);const buildline=fed.length?`<div class="builds">\u2191 lifts a rung on: <b>${fed.join(', ')}</b></div>`:'';
+    return `<div class="item ${on?'done-i':''} ${gate?'gate':''} ${opt?'opt':''}" style="border-left-color:${t.c}"><div class="chk ${on?'on':''}" data-code="${code}" role="checkbox" aria-checked="${on}" tabindex="0">\u2713</div><div class="body"><div><span class="codepill" style="color:${t.c};background:${t.c}22">${code}</span><span class="tracktag" style="color:${t.c};background:${t.c}18">${t.n}</span>${opt?'<span class="tracktag" style="color:var(--faint);background:transparent;border:1px solid var(--line2)">OPTIONAL</span>':''}</div><div class="name">${name}</div><div class="field"><div class="k">Why it\u2019s here</div><div class="v">${why}</div></div><div class="field"><div class="k">What you do</div><div class="v">${what}</div></div><div class="field"><div class="k">Done when</div><div class="v strong">${dc}</div></div>${buildline}</div><div class="hrs">~${hrs}h</div></div>`;}).join('');
+  const planned=PLAN.weeks[i].reduce((a,it)=>a+it[6],0);const committed=!!S.commits[i];
+  $('#week').innerHTML=`
+    <div class="weekhead"><div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap"><h2>Week ${i+1}</h2><span class="rng">${PLAN.range[i]}</span></div><span class="phase-tag" style="color:${meta.c};border-color:${meta.c}66">Phase ${ph} \u00b7 ${meta.n}</span></div>
+    <div class="goalline"><b>This week:</b> ${PLAN.goal[i]}</div>
+    <div class="weeknav"><button id="prev" ${i===0?'disabled':''}>\u2190 prev</button><button id="next" ${i===15?'disabled':''}>next \u2192</button><button id="jump">jump to current week</button></div>
+    ${items}
+    <div class="wkfoot"><label>Hours this week <input type="number" min="0" step="0.5" id="hrsin" value="${S.hours[i]??''}" placeholder="${planned}"></label><span class="hrs" style="margin-top:0">planned ~${planned}h</span><input type="text" id="notein" placeholder="note / result (e.g. mock 78%, exam booked 5 Dec)\u2026" value="${(S.notes[i]||'').replace(/"/g,'&quot;')}"><button class="commit ${committed?'on':''}" id="commit">${committed?'\u2713 committed':'\u25cb Weekly commit'}</button></div>`;
+  $('#week').querySelectorAll('.chk').forEach(c=>{const toggle=()=>{const k=c.dataset.code;S.checked[k]=!S.checked[k];save();render();};c.onclick=toggle;c.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggle();}};});
+  $('#prev').onclick=()=>{sel--;render();};$('#next').onclick=()=>{sel++;render();};$('#jump').onclick=()=>{sel=currentWeek();render();};
+  $('#hrsin').onchange=e=>{S.hours[i]=e.target.value===''?undefined:+e.target.value;save();render();};
+  $('#notein').onchange=e=>{S.notes[i]=e.target.value;save();};
+  $('#commit').onclick=()=>{S.commits[i]=!S.commits[i];save();render();};
+}
+function renderPanels(){
+  $('#panels').innerHTML=`
+   <details class="pnl" open><summary><span class="ic">01</span> Article framework \u2014 every post, same shape<span class="chev">\u203a</span></summary><div class="pnl-body"><p>A post covers <b>one thing you personally did</b>. Anything beyond that is a different post \u2014 park it. Budget \u2248 3\u20134h.</p><div class="step"><div class="num">1</div><div><div class="t">Pick</div><div class="box">Real work YOU completed, not researched.</div></div><div class="time">15 min</div></div><div class="step"><div class="num">2</div><div><div class="t">Skeleton</div><div class="box">problem \u2192 tried \u2192 broke \u2192 worked \u2192 the lesson. Max 5 headers.</div></div><div class="time">30 min</div></div><div class="step"><div class="num">3</div><div><div class="t">Draft in one sitting</div><div class="box">No editing while writing. AI may critique structure after \u2014 not write your sentences.</div></div><div class="time">90 min</div></div><div class="step"><div class="num">4</div><div><div class="t">Standards pass</div><div class="box">Cut any claim you can\u2019t reproduce. One code block that runs.</div></div><div class="time">45 min</div></div><div class="step"><div class="num">5</div><div><div class="t">Publish</div><div class="box">Done = public URL. Shipping beats polishing.</div></div><div class="time">20 min</div></div></div></details>
+   <details class="pnl"><summary><span class="ic">02</span> How to learn \u2014 the rules that make it stick<span class="chev">\u203a</span></summary><div class="pnl-body"><h4>The real thing you\u2019re building</h4><p>Not "stop using AI" \u2014 that\u2019s the era. The gap is <b>verification, not authorship</b>: catching the AI\u2019s mistakes, debugging its output, deriving it cold. Ownership <i>is</i> verification.</p><h4>The rebuild rule (keystone)</h4><p>After any taught unit: close it, blank terminal, rebuild it unaided. The lesson teaches; the rebuild is where it becomes yours.</p><h4>AI may explain, AI may not do</h4><p>It can unblock a definition after 30 min of real effort. It never writes the proof, the manifest, or the design.</p><h4>Skip-test</h4><p>For material you might know: lab first. Watch only what a lab proves you can\u2019t do.</p><h4>Steady dose beats binge</h4><p>The architecture course and office-infra study move in small weekly increments \u2014 that\u2019s how background compounds without burning the CKA track.</p></div></details>
+   <details class="pnl"><summary><span class="ic">03</span> Scope-creep control \u2014 mechanical, not motivational<span class="chev">\u203a</span></summary><div class="pnl-body"><ol><li><b>The week closes Friday; the new week opens Saturday.</b> Nothing enters mid-week. New ideas \u2192 parked list, reviewed only at W16.</li><li><b>The done-criterion IS the scope.</b> Work not required by it is creep \u2014 note it, park it, return.</li><li><b>Slip rule.</b> An unfinished item moves to the top of next week; next week\u2019s new load shrinks by the same hours. Never carry two full loads.</li><li><b>Red flag.</b> Two weeks with no commit \u2192 don\u2019t renegotiate the plan (that\u2019s quitting in disguise). Restart at the current week with the slip rule.</li></ol></div></details>
+   <details class="pnl"><summary><span class="ic">04</span> Parked \u2014 allowed to grow, not to start<span class="chev">\u203a</span></summary><div class="pnl-body"><ul><li><b>Maths warm-up (pursuit test)</b> \u2192 deferred to the W16 review / next block. Not dropped.</li><li><b>Regular writing cadence</b> \u2192 next block; one optional post (C1) kept this block.</li><li><b>Other architecture courses</b> (same series) — next block: Microservices/EDA + Cloud Patterns extend the spine; Case Studies + Practice Tests for system-design-interview prep; the Java distributed-systems course only if you later want hands-on coding.</li><li><b>MCP server build</b> \u2192 work hours anytime; Ed Donner\u2019s MCP course is a reference, not a watch-through.</li><li><b>Ed Donner AI courses</b> \u2192 W16 or later.</li><li><b>Udemy (AWS SAA / Terraform)</b> \u2192 next block.</li><li><b>CKS</b> \u2192 2027, after CKA is deep.</li><li><b>Masters (OMSCS vs local) / review paper</b> \u2192 Aug 2027, calendared.</li></ul></div></details>`;
+}
+// ================= INIT =================
+loadLocal();
+sel=currentWeek();
+render();
+initJB().then(function(ok){ if(ok){ render(); return; } initServer().then(function(ok2){ if(ok2){ render(); } }); });
+</script>
